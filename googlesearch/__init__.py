@@ -2,97 +2,66 @@
 from time import sleep
 from bs4 import BeautifulSoup
 from requests import get
-from urllib.parse import unquote  # to decode the url
+from urllib.parse import unquote # to decode the url
 from .user_agents import get_useragent
-from datetime import datetime
 
 
-def _req(term, results, lang, start, proxies, timeout, safe, ssl_verify, region, tbs):
-    """Send a request to Google Search and return the response."""
-    
-    base_url = "https://www.google.com/search"
-    params = {
-        "q": term,
-        "num": results + 2,  # Prevents multiple requests
-        "hl": lang,
-        "start": start,
-        "safe": safe,
-        "gl": region,
-        "tbs": tbs
-    }
-    
-    # Construct query URL for debugging
-    query_string = "&".join([f"{key}={value}" for key, value in params.items() if value])
-    full_url = f"{base_url}?{query_string}"
-    
-    # Print the constructed URL for debugging
-    print("Constructed Google Query URL:", full_url)
-    
+def _req(term, results, lang, start, proxies, timeout, safe, ssl_verify, region):
     resp = get(
-        url=base_url,
+        url="https://www.google.com/search",
         headers={
             "User-Agent": get_useragent(),
             "Accept": "*/*"
         },
-        params=params,
+        params={
+            "q": term,
+            "num": results + 2,  # Prevents multiple requests
+            "hl": lang,
+            "start": start,
+            "safe": safe,
+            "gl": region,
+        },
         proxies=proxies,
         timeout=timeout,
         verify=ssl_verify,
-        cookies={
-            'CONSENT': 'PENDING+987',  # Bypasses the consent page
+        cookies = {
+            'CONSENT': 'PENDING+987', # Bypasses the consent page
             'SOCS': 'CAESHAgBEhIaAB',
         }
     )
-    
     resp.raise_for_status()
     return resp
 
 
 class SearchResult:
-    def __init__(self, url, title, description, resp):
+    def __init__(self, url, title, description):
         self.url = url
         self.title = title
         self.description = description
-        self.resp = resp
 
     def __repr__(self):
-        return f"SearchResult(url={self.url}, title={self.title}, description={self.description}, resp={self.resp.text})"
+        return f"SearchResult(url={self.url}, title={self.title}, description={self.description})"
 
 
-def get_google_date_range_directive(start_yyyy_mm_dd, end_yyyy_mm_dd):
-    """Generates Google search date range directive."""
-    try:
-        start_date = datetime.strptime(start_yyyy_mm_dd, '%Y-%m-%d').strftime('%-m/%-d/%Y').replace('/', '%2F')
-        end_date = datetime.strptime(end_yyyy_mm_dd, '%Y-%m-%d').strftime('%-m/%-d/%Y').replace('/', '%2F')
-        return f'cdr%3A1%2Ccd_min%3A{start_date}%2Ccd_max%3A{end_date}'
-    except Exception as e:
-        return ''
-
-
-def search(term, num_results=10, lang="en", proxy=None, advanced=False, sleep_interval=0, timeout=5, safe="active",
-           ssl_verify=None, region=None, start_num=0, unique=False, start_date=None, end_date=None):
+def search(term, num_results=10, lang="en", proxy=None, advanced=False, sleep_interval=0, timeout=5, safe="active", ssl_verify=None, region=None, start_num=0, unique=False):
     """Search the Google search engine"""
 
     # Proxy setup
-    proxies = {"https": proxy, "http": proxy} if proxy and (
-                proxy.startswith("https") or proxy.startswith("http") or proxy.startswith("socks5")) else None
+    proxies = {"https": proxy, "http": proxy} if proxy and (proxy.startswith("https") or proxy.startswith("http") or proxy.startswith("socks5")) else None
 
     start = start_num
     fetched_results = 0  # Keep track of the total fetched results
-    fetched_links = set()  # to keep track of links that are already seen previously
+    fetched_links = set() # to keep track of links that are already seen previously
 
     while fetched_results < num_results:
         # Send request
-        tbs = None
-        if start_date and end_date:
-            tbs = get_google_date_range_directive(start_date, end_date)
         resp = _req(term, num_results - start,
-                    lang, start, proxies, timeout, safe, ssl_verify, region, tbs)
-
+                    lang, start, proxies, timeout, safe, ssl_verify, region)
+        
         # put in file - comment for debugging purpose
         # with open('google.html', 'w') as f:
         #     f.write(resp.text)
-
+        
         # Parse
         soup = BeautifulSoup(resp.text, "html.parser")
         result_block = soup.find_all("div", class_="ezO2md")
@@ -127,7 +96,7 @@ def search(term, num_results=10, lang="en", proxy=None, advanced=False, sleep_in
             new_results += 1
             # Yield the result based on the advanced flag
             if advanced:
-                yield SearchResult(link, title, description, resp)  # Yield a SearchResult object
+                yield SearchResult(link, title, description)  # Yield a SearchResult object
             else:
                 yield link  # Yield only the link
 
