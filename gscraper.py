@@ -55,7 +55,7 @@ def fetch_google_results(site):
         try:
             link = result.url
 
-            site_links = extract_links_from_wikipedia(media_website, link)
+            site_links = extract_links_from_wikipedia(site, link)
             extracted_site_links.append({link: list(site_links)})
             logging.info(f"Wikipedia link:{link} found for: {domain}")
             time.sleep(5)
@@ -67,7 +67,7 @@ def create_directory(directory_path):
     os.makedirs(directory_path, exist_ok=True)
 
 def main():
-    with open("output-1.json", "r") as file:
+    with open("output.json", "r") as file:
         data = json.load(file)
     overall_start_time = time.time()
     for state, media_types in data.items():
